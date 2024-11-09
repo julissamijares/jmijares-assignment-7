@@ -3,36 +3,163 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Linear Regression Assumptions</title>
+    <title>Statistical Analysis</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f7f7f7;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+        }
+        form {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        label {
+            margin-top: 10px;
+            display: block;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .results {
+            margin-top: 20px;
+        }
+        .plot-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .plot-container img {
+            margin: 0 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .output-section {
+            margin-top: 20px;
+        }
+        .output-section p {
+            font-size: 18px;
+        }
+        .error {
+            color: red;
+            font-size: 16px;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
-    <h1>Interactive Linear Regression Assumptions</h1>
 
-    <form method="POST">
-        <label for="N">Sample Size (N):</label>
-        <input type="number" id="N" name="N" required><br>
+    <h1>Generate Data and Perform Statistical Analysis</h1>
 
-        <label for="mu">Mean (μ):</label>
-        <input type="number" step="any" id="mu" name="mu" required><br>
+    {% if error %}
+        <div class="error">{{ error }}</div>
+    {% endif %}
 
-        <label for="sigma2">Variance (σ²):</label>
-        <input type="number" step="any" id="sigma2" name="sigma2" required><br>
+    <form method="post">
+        <h2>Data Generation Parameters</h2>
+        <!-- Data Generation Form -->
+        <label for="N">N (number of data points):</label>
+        <input type="number" id="N" name="N" required>
 
-        <label for="S">Number of Simulations (S):</label>
-        <input type="number" id="S" name="S" required><br>
+        <label for="mu">Mu (mean):</label>
+        <input type="number" id="mu" name="mu" step="0.01" required>
 
-        <button type="submit">Generate</button>
+        <label for="sigma2">Sigma2 (variance):</label>
+        <input type="number" id="sigma2" name="sigma2" step="0.01" required>
+
+        <label for="S">S (number of simulations):</label>
+        <input type="number" id="S" name="S" required>
+
+        <label for="beta0">Beta0 (intercept):</label>
+        <input type="number" id="beta0" name="beta0" step="0.01" required>
+
+        <label for="beta1">Beta1 (slope):</label>
+        <input type="number" id="beta1" name="beta1" step="0.01" required>
+
+        <button type="submit">Generate Data</button>
     </form>
 
+    
+
     {% if plot1 and plot2 %}
-        <h2>Generated Plot</h2>
-        <img src="{{ plot1 }}" alt="Regression Plot" style="width: 600px;">
-
-        <h2>Histogram of Slopes and Intercepts</h2>
-        <img src="{{ plot2 }}" alt="Histograms" style="width: 600px;">
-
-        <p>Proportion of slopes more extreme than calculated slope: {{ slope_extreme | round(2) }}</p>
-        <p>Proportion of intercepts more extreme than calculated intercept: {{ intercept_extreme | round(2) }}</p>
+        <h2>Generated Plots</h2>
+        <div class="plot-container">
+            <img src="data:image/png;base64,{{ plot1 }}" alt="Plot 1: Data and True Line">
+            <img src="data:image/png;base64,{{ plot2 }}" alt="Plot 2: Histogram of Simulated Values">
+        </div>
     {% endif %}
+
+    <h2>Hypothesis Testing</h2>
+    <form method="post">
+        <label for="test_param">Parameter to Test:</label>
+        <select name="test_param" required>
+            <option value="slope">Slope (β₁)</option>
+            <option value="intercept">Intercept (β₀)</option>
+        </select><br>
+
+        <label for="test_type">Type of Test:</label>
+        <select name="test_type" required>
+            <option value=">">Greater than ( > )</option>
+            <option value="<">Less than ( < )</option>
+            <option value="!=">Not equal to ( ≠ )</option>
+        </select><br>
+
+        <button name="hypothesis_test" type="submit">Run Hypothesis Test</button>
+    </form>
+
+    {% if hypothesis_test_result %}
+        <div class="output-section">
+            <p><b>p-value:</b> {{ hypothesis_test_result[0] }}</p>
+            <p>{{ hypothesis_test_result[1] }}</p>
+        </div>
+    {% endif %}
+
+    <h2>Confidence Interval Calculation</h2>
+    <form method="post">
+        <label for="ci_param">Parameter for Confidence Interval:</label>
+        <select name="ci_param" required>
+            <option value="slope">Slope (β₁)</option>
+            <option value="intercept">Intercept (β₀)</option>
+        </select><br>
+
+        <label for="confidence_level">Confidence Level:</label>
+        <select name="confidence_level" required>
+            <option value="0.90">90%</option>
+            <option value="0.95">95%</option>
+            <option value="0.99">99%</option>
+        </select><br>
+
+        <button name="confidence_interval" type="submit">Calculate Confidence Interval</button>
+    </form>
+
+    {% if confidence_interval_result %}
+        <div class="output-section">
+            <p><b>Confidence Interval for {{ confidence_interval_result[2] }}:</b></p>
+            <p>{{ confidence_interval_result[0][0] }} to {{ confidence_interval_result[0][1] }}</p>
+            <p><b>Mean Estimate:</b> {{ confidence_interval_result[1] }}</p>
+        </div>
+    {% endif %}
+
 </body>
 </html>
