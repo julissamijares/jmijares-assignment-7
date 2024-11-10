@@ -72,9 +72,12 @@ def index():
 # Hypothesis Test Plot
 def hypothesis_test_visualization(slopes, observed_stat, hypothesized_stat):
     fig, ax = plt.subplots()
-    ax.hist(slopes, bins=30, color='lightgray', edgecolor='black', alpha=0.7)
-    ax.axvline(observed_stat, color='blue', linestyle='-', linewidth=2, label="Observed Statistic")
-    ax.axvline(hypothesized_stat, color='red', linestyle='--', linewidth=2, label="Hypothesized Statistic (H₀)")
+    ax.hist(slopes, bins=30, color='blue', alpha=0.7)
+    
+    # Red dashed line for the observed slope (from the sample)
+    ax.axvline(np.median(slopes), color='red', linestyle='--', linewidth=2, label="Observed Slope")
+    # Blue line for the hypothesized slope
+    ax.axvline(hypothesized_stat, color='blue', linestyle='-', linewidth=2, label="Hypothesized Slope (H₀)")  
     ax.set_title("Hypothesis Testing: Simulated Slopes with Observed & Hypothesized Values")
     ax.set_xlabel("Slope")
     ax.set_ylabel("Frequency")
@@ -86,13 +89,15 @@ def hypothesis_test_visualization(slopes, observed_stat, hypothesized_stat):
     plot_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
     return plot_base64
 
+
 # Confidence Interval Visualization
 def confidence_interval_visualization(slopes, ci, true_param, mean_estimate):
     fig, ax = plt.subplots()
     ax.scatter(slopes, [1] * len(slopes), color='gray', alpha=0.6, label="Simulated Estimates")
-    ax.axhline(1, xmin=ci[0], xmax=ci[1], color='green' if ci[0] <= true_param <= ci[1] else 'red', linewidth=2, label="Confidence Interval")
+    # Blue horizontal line spanning the confidence interval
+    ax.hlines(1, ci[0], ci[1], color='blue', linewidth=6, label="Confidence Interval")
     ax.scatter(mean_estimate, 1, color='blue', s=100, label="Mean Estimate")
-    ax.axvline(true_param, color='purple', linestyle='--', linewidth=2, label="True Parameter")
+    ax.axvline(true_param, color='red', linestyle='--', linewidth=2, label="True Parameter")
     ax.set_yticks([])
     ax.set_title("Confidence Interval Visualization")
     ax.set_xlabel("Slope Value")
@@ -104,28 +109,39 @@ def confidence_interval_visualization(slopes, ci, true_param, mean_estimate):
     plot_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
     return plot_base64
 
+
 @app.route("/hypothesis_test", methods=["POST"])
 def hypothesis_test():
     try:
+        # Get the form data
         test_param = request.form["test_param"]
         test_type = request.form["test_type"]
-        observed_stat = float(request.form["observed_stat"])
-        hypothesized_stat = float(request.form.get("hypothesized_stat", 0))  # Added hypothesized value
 
+        # Retrieve slopes from session
         slopes = np.array(session.get("slopes", []))
         if len(slopes) == 0:
             return redirect(url_for('index'))
 
+        # Determine the hypothesized value based on test_param
         if test_param == "slope":
-            p_value = None
-            if test_type == ">":
-                p_value = (slopes >= observed_stat).mean()
-            elif test_type == "<":
-                p_value = (slopes <= observed_stat).mean()
-            elif test_type == "!=":
-                p_value = (np.abs(slopes - observed_stat) >= observed_stat).mean()
+            hypothesized_stat = session.get("beta1", 0)  # Get the true slope value
+        elif test_param == "intercept":
+            hypothesized_stat = session.get("beta0", 0)  # Get the true intercept value
 
+        # Calculate the observed statistic (the sample median of slopes)
+        observed_stat = np.median(slopes)  # Use the median as the observed statistic
+
+        # Perform the hypothesis test
+        if test_type == ">":
+            p_value = (slopes >= observed_stat).mean()
+        elif test_type == "<":
+            p_value = (slopes <= observed_stat).mean()
+        elif test_type == "!=":
+            p_value = (np.abs(slopes - observed_stat) >= np.abs(hypothesized_stat - observed_stat)).mean()
+
+        # Generate the hypothesis test plot
         test_plot = hypothesis_test_visualization(slopes, observed_stat, hypothesized_stat)
+
         return render_template("index.html", hypothesis_test_result=(p_value, f"P-value: {p_value:.4f}"), test_plot=test_plot)
 
     except Exception as e:
