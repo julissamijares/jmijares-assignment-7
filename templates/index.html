@@ -4,81 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Statistical Analysis</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f7f7f7;
-            color: #333;
-        }
-        h1 {
-            text-align: center;
-        }
-        form {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            margin-bottom: 30px;
-        }
-        label {
-            margin-top: 10px;
-            display: block;
-        }
-        input, select, button {
-            width: 100%;
-            padding: 8px;
-            margin: 5px 0;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        .results {
-            margin-top: 20px;
-        }
-        .plot-container {
-            display: flex;
-            justify-content: center;
-            margin-top: 20px;
-        }
-        .plot-container img {
-            margin: 0 20px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        .output-section {
-            margin-top: 20px;
-        }
-        .output-section p {
-            font-size: 18px;
-        }
-        .error {
-            color: red;
-            font-size: 16px;
-            text-align: center;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-
     <h1>Generate Data and Perform Statistical Analysis</h1>
 
     {% if error %}
         <div class="error">{{ error }}</div>
     {% endif %}
 
-    <form method="post">
+    <!-- Data Generation Form -->
+    <form method="post" action="{{ url_for('index') }}">
         <h2>Data Generation Parameters</h2>
-        <!-- Data Generation Form -->
         <label for="N">N (number of data points):</label>
         <input type="number" id="N" name="N" required>
 
@@ -100,8 +37,6 @@
         <button type="submit">Generate Data</button>
     </form>
 
-    
-
     {% if plot1 and plot2 %}
         <h2>Generated Plots</h2>
         <div class="plot-container">
@@ -110,8 +45,9 @@
         </div>
     {% endif %}
 
+    <!-- Hypothesis Testing Form -->
     <h2>Hypothesis Testing</h2>
-    <form method="post">
+    <form method="post" action="{{ url_for('hypothesis_test') }}">
         <label for="test_param">Parameter to Test:</label>
         <select name="test_param" required>
             <option value="slope">Slope (β₁)</option>
@@ -125,6 +61,9 @@
             <option value="!=">Not equal to ( ≠ )</option>
         </select><br>
 
+        <label for="observed_stat">Observed Statistic (e.g., observed slope):</label>
+        <input type="number" id="observed_stat" name="observed_stat" step="0.01" required><br>
+
         <button name="hypothesis_test" type="submit">Run Hypothesis Test</button>
     </form>
 
@@ -133,10 +72,16 @@
             <p><b>p-value:</b> {{ hypothesis_test_result[0] }}</p>
             <p>{{ hypothesis_test_result[1] }}</p>
         </div>
+        {% if test_plot %}
+            <div class="plot-container">
+                <img src="data:image/png;base64,{{ test_plot }}" alt="Hypothesis Test Visualization">
+            </div>
+        {% endif %}
     {% endif %}
 
+    <!-- Confidence Interval Calculation Form -->
     <h2>Confidence Interval Calculation</h2>
-    <form method="post">
+    <form method="post" action="{{ url_for('confidence_interval') }}">
         <label for="ci_param">Parameter for Confidence Interval:</label>
         <select name="ci_param" required>
             <option value="slope">Slope (β₁)</option>
@@ -159,6 +104,11 @@
             <p>{{ confidence_interval_result[0][0] }} to {{ confidence_interval_result[0][1] }}</p>
             <p><b>Mean Estimate:</b> {{ confidence_interval_result[1] }}</p>
         </div>
+        {% if ci_plot %}
+            <div class="plot-container">
+                <img src="data:image/png;base64,{{ ci_plot }}" alt="Confidence Interval Visualization">
+            </div>
+        {% endif %}
     {% endif %}
 
 </body>

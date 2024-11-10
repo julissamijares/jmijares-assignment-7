@@ -1,0 +1,84 @@
+/* style.css */
+
+/* General body styling */
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background-color: #f7f7f7;
+    color: #333;
+}
+
+/* Center the main heading */
+h1 {
+    text-align: center;
+}
+
+/* Form container styling */
+form {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+}
+
+/* Label styling */
+label {
+    margin-top: 10px;
+    display: block;
+}
+
+/* Input, select, and button styling */
+input, select, button {
+    width: 100%;
+    padding: 8px;
+    margin: 5px 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+/* Styling for results section */
+.results {
+    margin-top: 20px;
+}
+
+/* Plot container styling */
+.plot-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.plot-container img {
+    margin: 0 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+/* Output section styling */
+.output-section {
+    margin-top: 20px;
+}
+
+.output-section p {
+    font-size: 18px;
+}
+
+/* Error message styling */
+.error {
+    color: red;
+    font-size: 16px;
+    text-align: center;
+}
