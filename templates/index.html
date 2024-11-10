@@ -65,16 +65,19 @@
     </form>
 
     {% if hypothesis_test_result %}
-        <div class="output-section">
-            <p><b>p-value:</b> {{ hypothesis_test_result[0] }}</p>
-            <p>{{ hypothesis_test_result[1] }}</p>
+    <div class="output-section">
+        <p><b>Parameter Tested:</b> {{ hypothesis_test_result[0] }}</p>
+        <p><b>Observed Value:</b> {{ hypothesis_test_result[1] }}</p>
+        <p><b>Hypothesized Value:</b> {{ hypothesis_test_result[2] }}</p>
+        <p><b>{{ hypothesis_test_result[3] }}</b></p>
+    </div>
+    {% if test_plot %}
+        <div class="plot-container">
+            <img src="data:image/png;base64,{{ test_plot }}" alt="Hypothesis Test Visualization">
         </div>
-        {% if test_plot %}
-            <div class="plot-container">
-                <img src="data:image/png;base64,{{ test_plot }}" alt="Hypothesis Test Visualization">
-            </div>
-        {% endif %}
     {% endif %}
+{% endif %}
+
 
     <!-- Confidence Interval Calculation Form -->
     <h2>Confidence Interval Calculation</h2>
@@ -96,17 +99,25 @@
     </form>
 
     {% if confidence_interval_result %}
-        <div class="output-section">
-            <p><b>Confidence Interval for {{ confidence_interval_result[2] }}:</b></p>
-            <p>{{ confidence_interval_result[0][0] }} to {{ confidence_interval_result[0][1] }}</p>
-            <p><b>Mean Estimate:</b> {{ confidence_interval_result[1] }}</p>
+    <div class="output-section">
+        <p><b>Confidence Interval for {{ ci_param | capitalize }}:</b></p>
+        <p>{{ confidence_interval_result[0][0] }} to {{ confidence_interval_result[0][1] }}</p>
+        <p><b>Mean Estimate:</b> {{ confidence_interval_result[1] }}</p>
+        <p><b>Confidence Interval Involves True Parameter:</b> 
+            {% if confidence_interval_result[2] %}
+                True
+            {% else %}
+                False
+            {% endif %}
+        </p>
+    </div>
+    {% if ci_plot %}
+        <div class="plot-container">
+            <img src="data:image/png;base64,{{ ci_plot }}" alt="Confidence Interval Visualization">
         </div>
-        {% if ci_plot %}
-            <div class="plot-container">
-                <img src="data:image/png;base64,{{ ci_plot }}" alt="Confidence Interval Visualization">
-            </div>
-        {% endif %}
     {% endif %}
+{% endif %}
+
 
 </body>
 </html>

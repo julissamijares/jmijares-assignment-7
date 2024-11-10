@@ -23,10 +23,12 @@ def generate_plots(N, mu, sigma2, S, beta0, beta1):
     ax1.legend()
 
     slopes = []
+    intercepts = [] 
     for _ in range(S):
         Y_sample = beta0 + beta1 * X + np.random.normal(0, np.sqrt(sigma2), N)
-        slope, _, _, _, _ = stats.linregress(X, Y_sample)
+        slope, intercept, _, _, _ = stats.linregress(X, Y_sample)
         slopes.append(slope)
+        intercepts.append(intercept) 
 
     # Plot histogram of simulated slopes
     fig2, ax2 = plt.subplots()
@@ -47,6 +49,7 @@ def generate_plots(N, mu, sigma2, S, beta0, beta1):
     buf2.seek(0)
     plot2_base64 = base64.b64encode(buf2.getvalue()).decode('utf-8')
 
+    
     return plot1_base64, plot2_base64, slopes
 
 @app.route("/", methods=["GET", "POST"])
@@ -70,16 +73,19 @@ def index():
     return render_template("index.html")
 
 # Hypothesis Test Plot
-def hypothesis_test_visualization(slopes, observed_stat, hypothesized_stat):
+def hypothesis_test_visualization(values, observed_stat, hypothesized_stat, test_param):
     fig, ax = plt.subplots()
-    ax.hist(slopes, bins=30, color='blue', alpha=0.7)
+
+    # Plot the histogram of the simulated values (slopes or intercepts)
+    ax.hist(values, bins=30, color='lightblue', alpha=0.7)
     
-    # Red dashed line for the observed slope (from the sample)
-    ax.axvline(np.median(slopes), color='red', linestyle='--', linewidth=2, label="Observed Slope")
-    # Blue line for the hypothesized slope
-    ax.axvline(hypothesized_stat, color='blue', linestyle='-', linewidth=2, label="Hypothesized Slope (H₀)")  
-    ax.set_title("Hypothesis Testing: Simulated Slopes with Observed & Hypothesized Values")
-    ax.set_xlabel("Slope")
+    # Add the observed and hypothesized lines
+    ax.axvline(observed_stat, color='red', linestyle='--', label="Observed Value")
+    ax.axvline(hypothesized_stat, color='blue', linestyle='-', label="Hypothesized Value")
+    
+    # Set the plot title based on the test parameter
+    ax.set_title(f"Hypothesis Test for {test_param.capitalize()}")  # Dynamic title based on parameter
+    ax.set_xlabel(f"{test_param.capitalize()} Value")
     ax.set_ylabel("Frequency")
     ax.legend()
 
@@ -91,16 +97,15 @@ def hypothesis_test_visualization(slopes, observed_stat, hypothesized_stat):
 
 
 # Confidence Interval Visualization
-def confidence_interval_visualization(slopes, ci, true_param, mean_estimate):
+def confidence_interval_visualization(slopes, ci, true_param, mean_estimate, confidence_level, ci_param):
     fig, ax = plt.subplots()
     ax.scatter(slopes, [1] * len(slopes), color='gray', alpha=0.6, label="Simulated Estimates")
-    # Blue horizontal line spanning the confidence interval
     ax.hlines(1, ci[0], ci[1], color='blue', linewidth=6, label="Confidence Interval")
     ax.scatter(mean_estimate, 1, color='blue', s=100, label="Mean Estimate")
     ax.axvline(true_param, color='red', linestyle='--', linewidth=2, label="True Parameter")
     ax.set_yticks([])
-    ax.set_title("Confidence Interval Visualization")
-    ax.set_xlabel("Slope Value")
+    ax.set_title(f"{int(confidence_level*100)}% Confidence Interval for {ci_param.capitalize()}")
+    ax.set_xlabel(f"{ci_param.capitalize()} Value")
     ax.legend()
 
     buf = io.BytesIO()
@@ -110,6 +115,8 @@ def confidence_interval_visualization(slopes, ci, true_param, mean_estimate):
     return plot_base64
 
 
+
+
 @app.route("/hypothesis_test", methods=["POST"])
 def hypothesis_test():
     try:
@@ -117,32 +124,39 @@ def hypothesis_test():
         test_param = request.form["test_param"]
         test_type = request.form["test_type"]
 
-        # Retrieve slopes from session
+        # Retrieve slopes or intercepts from session
         slopes = np.array(session.get("slopes", []))
+        intercepts = np.array(session.get("intercepts", []))  # Assuming intercepts are stored
         if len(slopes) == 0:
             return redirect(url_for('index'))
 
-        # Determine the hypothesized value based on test_param
+        # Determine the observed value and hypothesized value based on test_param
         if test_param == "slope":
-            hypothesized_stat = session.get("beta1", 0)  # Get the true slope value
+            observed_stat = np.median(slopes)  # Median of slopes
+            hypothesized_stat = session.get("beta1", 0)  # True slope (beta1)
         elif test_param == "intercept":
-            hypothesized_stat = session.get("beta0", 0)  # Get the true intercept value
-
-        # Calculate the observed statistic (the sample median of slopes)
-        observed_stat = np.median(slopes)  # Use the median as the observed statistic
+            observed_stat = np.median(intercepts)  # Median of intercepts
+            hypothesized_stat = session.get("beta0", 0)  # True intercept (beta0)
 
         # Perform the hypothesis test
         if test_type == ">":
-            p_value = (slopes >= observed_stat).mean()
+            p_value = (slopes >= observed_stat).mean() if test_param == "slope" else (intercepts >= observed_stat).mean()
         elif test_type == "<":
-            p_value = (slopes <= observed_stat).mean()
+            p_value = (slopes <= observed_stat).mean() if test_param == "slope" else (intercepts <= observed_stat).mean()
         elif test_type == "!=":
-            p_value = (np.abs(slopes - observed_stat) >= np.abs(hypothesized_stat - observed_stat)).mean()
+            p_value = (np.abs(slopes - observed_stat) >= np.abs(hypothesized_stat - observed_stat)).mean() if test_param == "slope" else (np.abs(intercepts - observed_stat) >= np.abs(hypothesized_stat - observed_stat)).mean()
 
         # Generate the hypothesis test plot
-        test_plot = hypothesis_test_visualization(slopes, observed_stat, hypothesized_stat)
+        test_plot = hypothesis_test_visualization(slopes if test_param == "slope" else intercepts, observed_stat, hypothesized_stat, test_param)
 
-        return render_template("index.html", hypothesis_test_result=(p_value, f"P-value: {p_value:.4f}"), test_plot=test_plot)
+        return render_template("index.html", 
+                               hypothesis_test_result=(
+                                   test_param.capitalize(),  # Capitalize the parameter name
+                                   observed_stat, 
+                                   hypothesized_stat, 
+                                   f"P-value: {p_value:.4f}"
+                               ), 
+                               test_plot=test_plot)
 
     except Exception as e:
         return render_template("index.html", error="Error during hypothesis testing: " + str(e))
@@ -152,7 +166,6 @@ def confidence_interval():
     try:
         ci_param = request.form["ci_param"]
         confidence_level = float(request.form["confidence_level"])
-
         slopes = np.array(session.get("slopes", []))
         if len(slopes) == 0:
             return redirect(url_for('index'))
@@ -160,11 +173,25 @@ def confidence_interval():
         mean_estimate = np.mean(slopes)
         std_error = np.std(slopes) / np.sqrt(len(slopes))
         ci = stats.t.interval(confidence_level, len(slopes) - 1, loc=mean_estimate, scale=std_error)
-        true_param = session.get("beta1", 0)  # Retrieving beta1 for slope testing as true parameter
+        
+        # Retrieve the true parameter (slope or intercept) from session
+        true_param = session.get("beta1" if ci_param == "slope" else "beta0", 0)
+        # Check if the true parameter is within the confidence interval
+        ci_involves_true = ci[0] <= true_param <= ci[1]
+        # Pass confidence_level and ci_param to visualization
+        ci_plot = confidence_interval_visualization(slopes, ci, true_param, mean_estimate, confidence_level, ci_param)
 
-        ci_plot = confidence_interval_visualization(slopes, ci, true_param, mean_estimate)
-        return render_template("index.html", confidence_interval_result=(ci, mean_estimate), ci_plot=ci_plot)
+        # Format result for the template
+        confidence_interval_result = (
+            ci,  # Confidence Interval
+            mean_estimate,  # Mean Estimate
+            ci_involves_true  # Whether the confidence interval involves the true parameter
+        )
 
+        return render_template("index.html", 
+                               confidence_interval_result=confidence_interval_result, 
+                               ci_plot=ci_plot,
+                               ci_param=ci_param)
     except Exception as e:
         return render_template("index.html", error="Error calculating confidence interval: " + str(e))
 
