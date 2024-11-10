@@ -49,13 +49,13 @@ def generate_plots(N, mu, sigma2, S, beta0, beta1):
     buf2.seek(0)
     plot2_base64 = base64.b64encode(buf2.getvalue()).decode('utf-8')
 
-    
     return plot1_base64, plot2_base64, slopes
 
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
         try:
+            # Store values in the session after each form submission
             N = int(request.form["N"])
             mu = float(request.form["mu"])
             sigma2 = float(request.form["sigma2"])
@@ -63,14 +63,29 @@ def index():
             beta0 = float(request.form["beta0"])
             beta1 = float(request.form["beta1"])
 
+            # Save parameters in session for persistence
+            session['N'] = N
+            session['mu'] = mu
+            session['sigma2'] = sigma2
+            session['S'] = S
+            session['beta0'] = beta0
+            session['beta1'] = beta1
+
             plot1, plot2, slopes = generate_plots(N, mu, sigma2, S, beta0, beta1)
             session['slopes'] = slopes  # Store slopes in session for other routes to access
-            return render_template("index.html", plot1=plot1, plot2=plot2)
+            return render_template("index.html", plot1=plot1, plot2=plot2, N=N, mu=mu, sigma2=sigma2, S=S, beta0=beta0, beta1=beta1)
 
         except Exception as e:
             return render_template("index.html", error="Error generating data: " + str(e))
 
-    return render_template("index.html")
+    # Populate form with values from session or set default values
+    return render_template("index.html",
+                           N=session.get('N', 50),
+                           mu=session.get('mu', 0),
+                           sigma2=session.get('sigma2', 1),
+                           S=session.get('S', 100),
+                           beta0=session.get('beta0', 0),
+                           beta1=session.get('beta1', 1))
 
 # Hypothesis Test Plot
 def hypothesis_test_visualization(values, observed_stat, hypothesized_stat, test_param):
