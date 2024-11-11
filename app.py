@@ -192,7 +192,7 @@ def hypothesis_test():
         return render_template("index.html", 
                                hypothesis_test_result=(
                                    test_param.capitalize(),  # Capitalize the parameter name
-                                   observed_stat, 
+                                   f"{observed_stat:.4f}", 
                                    hypothesized_stat, 
                                    f"P-value: {p_value:.4f}"
                                ), 
@@ -236,17 +236,19 @@ def confidence_interval():
         # Generate the confidence interval visualization
         ci_plot = confidence_interval_visualization(simulated_values, ci, true_param, mean_estimate, confidence_level, ci_param)
 
-        # Format result for the template
+        # Round the confidence interval bounds and the mean estimate for display
         confidence_interval_result = (
-            ci,  # Confidence Interval
-            mean_estimate,  # Mean Estimate
-            ci_involves_true  # Whether the confidence interval involves the true parameter
+            ci,
+            f"{mean_estimate:.4f}",  # Round mean estimate to 4 decimal places
+            ci_involves_true  # Whether the true parameter is inside the CI
         )
 
+        # Render the template with the rounded values
         return render_template("index.html", 
                                confidence_interval_result=confidence_interval_result, 
                                ci_plot=ci_plot,
                                ci_param=ci_param)
+
     except Exception as e:
         return render_template("index.html", error="Error calculating confidence interval: " + str(e))
 

@@ -38,7 +38,7 @@ input, select, button {
 }
 
 button {
-    background-color: #4CAF50;
+    background-color: #338eff;
     color: white;
     border: none;
     cursor: pointer;
@@ -46,7 +46,7 @@ button {
 }
 
 button:hover {
-    background-color: #45a049;
+    background-color: #0000FF;
 }
 
 /* Styling for results section */
