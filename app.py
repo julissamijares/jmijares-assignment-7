@@ -14,7 +14,7 @@ def generate_plots(N, mu, sigma2, S, beta0, beta1):
     Y = beta0 + beta1 * X + np.random.normal(0, np.sqrt(sigma2), N)
 
     # Plot the data and the true line
-    fig1, ax1 = plt.subplots()
+    fig1, ax1 = plt.subplots(figsize=(8, 6))  # Set a more reasonable size
     ax1.scatter(X, Y, label='Data', color='blue')
     ax1.plot(X, beta0 + beta1 * X, label='True Line', color='red')
     ax1.set_title('Data and True Line')
@@ -28,28 +28,38 @@ def generate_plots(N, mu, sigma2, S, beta0, beta1):
         Y_sample = beta0 + beta1 * X + np.random.normal(0, np.sqrt(sigma2), N)
         slope, intercept, _, _, _ = stats.linregress(X, Y_sample)
         slopes.append(slope)
-        intercepts.append(intercept) 
+        intercepts.append(intercept)
 
-    # Plot histogram of simulated slopes
-    fig2, ax2 = plt.subplots()
-    ax2.hist(slopes, bins=30, color='green', alpha=0.7)
-    ax2.axvline(x=beta1, color='red', linestyle='--', label='True Slope')
-    ax2.set_title('Histogram of Simulated Slopes')
-    ax2.set_xlabel('Slope')
+    # Plot histogram of simulated slopes and intercepts
+    fig2, ax2 = plt.subplots(figsize=(8, 6)) 
+    ax2.hist(slopes, bins=30, color='blue', alpha=0.7, label='Slope', density=True)
+    ax2.axvline(x=beta1, color='blue', linestyle='--', label='True Slope')
+
+    # Overlay histogram for intercepts
+    ax2.hist(intercepts, bins=30, color='orange', alpha=0.7, label='Intercept', density=True)
+    ax2.axvline(x=beta0, color='orange', linestyle='--', label='True Intercept')
+
+    ax2.set_title('Histogram of Simulated Slopes and Intercepts')
+    ax2.set_xlabel('Parameter Value')
     ax2.set_ylabel('Frequency')
     ax2.legend()
 
     buf1 = io.BytesIO()
-    fig1.savefig(buf1, format='png')
+    fig1.savefig(buf1, format='png', bbox_inches='tight')
     buf1.seek(0)
     plot1_base64 = base64.b64encode(buf1.getvalue()).decode('utf-8')
 
     buf2 = io.BytesIO()
-    fig2.savefig(buf2, format='png')
+    fig2.savefig(buf2, format='png', bbox_inches='tight')  # Use bbox_inches='tight' to remove unnecessary margins
     buf2.seek(0)
     plot2_base64 = base64.b64encode(buf2.getvalue()).decode('utf-8')
 
-    return plot1_base64, plot2_base64, slopes
+    # Store both slopes and intercepts in session
+    session['slopes'] = slopes
+    session['intercepts'] = intercepts  # Save intercepts for hypothesis testing
+    session.modified = True  # Force session to commit
+
+    return plot1_base64, plot2_base64, slopes, intercepts
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -71,8 +81,10 @@ def index():
             session['beta0'] = beta0
             session['beta1'] = beta1
 
-            plot1, plot2, slopes = generate_plots(N, mu, sigma2, S, beta0, beta1)
+            plot1, plot2, slopes, intercepts = generate_plots(N, mu, sigma2, S, beta0, beta1)
             session['slopes'] = slopes  # Store slopes in session for other routes to access
+            session["intercepts"] = intercepts  # Store intercepts in session
+            print("Intercepts stored in session:", intercepts)
             return render_template("index.html", plot1=plot1, plot2=plot2, N=N, mu=mu, sigma2=sigma2, S=S, beta0=beta0, beta1=beta1)
 
         except Exception as e:
@@ -112,9 +124,9 @@ def hypothesis_test_visualization(values, observed_stat, hypothesized_stat, test
 
 
 # Confidence Interval Visualization
-def confidence_interval_visualization(slopes, ci, true_param, mean_estimate, confidence_level, ci_param):
+def confidence_interval_visualization(simulated_values, ci, true_param, mean_estimate, confidence_level, ci_param):
     fig, ax = plt.subplots()
-    ax.scatter(slopes, [1] * len(slopes), color='gray', alpha=0.6, label="Simulated Estimates")
+    ax.scatter(simulated_values, [1] * len(simulated_values), color='gray', alpha=0.6, label="Simulated Estimates")
     ax.hlines(1, ci[0], ci[1], color='blue', linewidth=6, label="Confidence Interval")
     ax.scatter(mean_estimate, 1, color='blue', s=100, label="Mean Estimate")
     ax.axvline(true_param, color='red', linestyle='--', linewidth=2, label="True Parameter")
@@ -129,9 +141,6 @@ def confidence_interval_visualization(slopes, ci, true_param, mean_estimate, con
     plot_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
     return plot_base64
 
-
-
-
 @app.route("/hypothesis_test", methods=["POST"])
 def hypothesis_test():
     try:
@@ -141,25 +150,41 @@ def hypothesis_test():
 
         # Retrieve slopes or intercepts from session
         slopes = np.array(session.get("slopes", []))
-        intercepts = np.array(session.get("intercepts", []))  # Assuming intercepts are stored
-        if len(slopes) == 0:
+        intercepts = np.array(session.get("intercepts", []))  # Retrieve intercepts from session
+
+        # Debug: Check if slopes and intercepts are being retrieved
+        print("Slopes from session:", slopes)
+        print("Intercepts from session:", intercepts)
+
+        if len(slopes) == 0 or len(intercepts) == 0:  # Check if both are available
+            print("No slopes or intercepts found in session. Redirecting...")
             return redirect(url_for('index'))
 
         # Determine the observed value and hypothesized value based on test_param
         if test_param == "slope":
-            observed_stat = np.median(slopes)  # Median of slopes
+            observed_stat = np.mean(slopes)  # Use mean of slopes
             hypothesized_stat = session.get("beta1", 0)  # True slope (beta1)
         elif test_param == "intercept":
-            observed_stat = np.median(intercepts)  # Median of intercepts
+            observed_stat = np.mean(intercepts)  # Use mean of intercepts
             hypothesized_stat = session.get("beta0", 0)  # True intercept (beta0)
 
-        # Perform the hypothesis test
-        if test_type == ">":
-            p_value = (slopes >= observed_stat).mean() if test_param == "slope" else (intercepts >= observed_stat).mean()
-        elif test_type == "<":
-            p_value = (slopes <= observed_stat).mean() if test_param == "slope" else (intercepts <= observed_stat).mean()
-        elif test_type == "!=":
-            p_value = (np.abs(slopes - observed_stat) >= np.abs(hypothesized_stat - observed_stat)).mean() if test_param == "slope" else (np.abs(intercepts - observed_stat) >= np.abs(hypothesized_stat - observed_stat)).mean()
+        # Calculate the standard error of the observed statistic
+        if test_param == "slope":
+            std_error = np.std(slopes) / np.sqrt(len(slopes))  # Standard error for slopes
+        elif test_param == "intercept":
+            std_error = np.std(intercepts) / np.sqrt(len(intercepts))  # Standard error for intercepts
+
+        # Calculate the t-statistic
+        t_statistic = (observed_stat - hypothesized_stat) / std_error
+
+        # Degrees of freedom
+        df = len(slopes) - 1 if test_param == "slope" else len(intercepts) - 1
+
+        # Calculate the p-value using the t-distribution (two-tailed test)
+        p_value = 2 * (1 - stats.t.cdf(abs(t_statistic), df))  # Two-tailed p-value
+
+        # Debug: Check p-value calculation
+        print(f"P-value: {p_value:.4f}")
 
         # Generate the hypothesis test plot
         test_plot = hypothesis_test_visualization(slopes if test_param == "slope" else intercepts, observed_stat, hypothesized_stat, test_param)
@@ -174,27 +199,42 @@ def hypothesis_test():
                                test_plot=test_plot)
 
     except Exception as e:
+        # Debug: Error handling
+        print("Error during hypothesis testing:", e)
         return render_template("index.html", error="Error during hypothesis testing: " + str(e))
 
 @app.route("/confidence_interval", methods=["POST"])
 def confidence_interval():
     try:
-        ci_param = request.form["ci_param"]
+        ci_param = request.form["ci_param"]  # 'slope' or 'intercept'
         confidence_level = float(request.form["confidence_level"])
-        slopes = np.array(session.get("slopes", []))
-        if len(slopes) == 0:
+        
+        # Get the correct simulated values based on the ci_param selected
+        if ci_param == "slope":
+            simulated_values = np.array(session.get("slopes", []))
+        elif ci_param == "intercept":
+            simulated_values = np.array(session.get("intercepts", []))
+        else:
             return redirect(url_for('index'))
 
-        mean_estimate = np.mean(slopes)
-        std_error = np.std(slopes) / np.sqrt(len(slopes))
-        ci = stats.t.interval(confidence_level, len(slopes) - 1, loc=mean_estimate, scale=std_error)
+        if len(simulated_values) == 0:
+            return redirect(url_for('index'))
+
+        # Calculate mean estimate and standard error for confidence interval calculation
+        mean_estimate = np.mean(simulated_values)
+        std_error = np.std(simulated_values) / np.sqrt(len(simulated_values))
+        
+        # Confidence interval calculation
+        ci = stats.t.interval(confidence_level, len(simulated_values) - 1, loc=mean_estimate, scale=std_error)
         
         # Retrieve the true parameter (slope or intercept) from session
         true_param = session.get("beta1" if ci_param == "slope" else "beta0", 0)
+        
         # Check if the true parameter is within the confidence interval
         ci_involves_true = ci[0] <= true_param <= ci[1]
-        # Pass confidence_level and ci_param to visualization
-        ci_plot = confidence_interval_visualization(slopes, ci, true_param, mean_estimate, confidence_level, ci_param)
+
+        # Generate the confidence interval visualization
+        ci_plot = confidence_interval_visualization(simulated_values, ci, true_param, mean_estimate, confidence_level, ci_param)
 
         # Format result for the template
         confidence_interval_result = (
